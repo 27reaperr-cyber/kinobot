@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reelogue — Вход</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-bg" id="loginBg"></div>
+    <div class="login-card">
+      <div class="logo">Ree<b>logue</b></div>
+
+      <!-- Step 1 -->
+      <div class="login-step show" id="step-start">
+        <p class="tag">Дневник фильмов и сериалов</p>
+        <button class="btn accent" id="loginBtn">Войти через Telegram</button>
+        <p class="hint" id="errHint" style="color:var(--red);display:none">
+          Ссылка устарела. Попробуйте снова.
+        </p>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="login-step" id="step-wait">
+        <p class="tag">Откройте бота в Telegram и завершите вход</p>
+        <a class="btn accent" id="openTg" target="_blank" rel="noopener">Открыть Telegram</a>
+        <div class="spin"></div>
+        <p class="hint">
+          Ожидаем подтверждение…
+          ссылка действует <span class="countdown" id="cd">10:00</span>
+        </p>
+        <button class="btn ghost sm" id="cancelBtn" style="margin-top:10px">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+    let token = null, poll = null, timer = null, deadline = 0;
+
+    // pretty backdrop from a trending title
+    fetch('/api/tmdb/trending').then(r => r.json()).then(d => {
+      const hit = (d.results || []).find(x => x.backdrop);
+      if (hit) $('#loginBg').style.backgroundImage = `url(${hit.backdrop})`;
+    }).catch(() => {});
+
+    if (new URLSearchParams(location.search).get('error')) {
+      $('#errHint').style.display = 'block';
+    }
+
+    // already logged in? go home
+    fetch('/api/me').then(r => { if (r.ok) location.href = '/'; });
+
+    function show(step) {
+      document.querySelectorAll('.login-step').forEach(s => s.classList.remove('show'));
+      $('#' + step).classList.add('show');
+    }
+
+    function startTimer() {
+      deadline = Date.now() + 10 * 60 * 1000;
+      timer = setInterval(() => {
+        const left = Math.max(0, deadline - Date.now());
+        const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+        $('#cd').textContent = `${m}:${String(s).padStart(2, '0')}`;
+        if (left <= 0) { stop(); show('step-start'); $('#errHint').style.display = 'block'; }
+      }, 500);
+    }
+    function stop() { clearInterval(poll); clearInterval(timer); }
+
+    $('#loginBtn').onclick = async () => {
+      $('#errHint').style.display = 'none';
+      const r = await fetch('/api/auth/request', { method: 'POST' });
+      const d = await r.json();
+      token = d.token;
+      $('#openTg').href = d.deepLink || '#';
+      show('step-wait');
+      startTimer();
+      // open the bot
+      if (d.deepLink) window.open(d.deepLink, '_blank');
+      // poll for completion
+      poll = setInterval(async () => {
+        const s = await fetch('/api/auth/status?token=' + token).then(r => r.json());
+        if (s.status === 'authenticated') { stop(); location.href = '/'; }
+        if (s.status === 'expired' || s.status === 'gone') {
+          stop(); show('step-start'); $('#errHint').style.display = 'block';
+        }
+      }, 2000);
+    };
+
+    $('#cancelBtn').onclick = () => { stop(); show('step-start'); };
+  </script>
+</body>
+</html>

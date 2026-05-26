@@ -1,0 +1,19 @@
+{
+  "name": "reelogue",
+  "version": "1.0.0",
+  "description": "Reelogue — a Letterboxd-style film & TV diary with Telegram auth",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "bot": "node bot.js",
+    "dev": "node server.js & node bot.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "grammy": "^1.32.0"
+  }
+}
